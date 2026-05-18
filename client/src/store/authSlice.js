@@ -1,19 +1,42 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../services/axiosInstance";
 
-// Async thunk: đăng ký
-export const registerUser = createAsyncThunk(
-  "auth/register",
+// Async thunk: gửi OTP đăng ký
+export const requestRegisterOtp = createAsyncThunk(
+  "auth/requestRegisterOtp",
   async ({ name, email, phone, password }, { rejectWithValue }) => {
     try {
-      const res = await axiosInstance.post("/auth/register", { name, email, phone, password });
+      const res = await axiosInstance.post("/auth/request-register-otp", {
+        name,
+        email,
+        phone,
+        password,
+      });
+      return res.data.message;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Gửi OTP đăng ký thất bại"
+      );
+    }
+  }
+);
+
+// Async thunk: xác thực OTP đăng ký
+export const verifyRegisterOtp = createAsyncThunk(
+  "auth/verifyRegisterOtp",
+  async ({ email, otp }, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.post("/auth/verify-register-otp", {
+        email,
+        otp,
+      });
       const { token, user } = res.data.data;
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
       return { token, user };
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || "Đăng ký thất bại"
+        error.response?.data?.message || "Xác thực OTP đăng ký thất bại"
       );
     }
   }
@@ -43,7 +66,7 @@ export const requestOtp = createAsyncThunk(
       return res.data.message;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || "Gui OTP that bai"
+        error.response?.data?.message || "Gửi OTP thất bại"
       );
     }
   }
@@ -124,18 +147,32 @@ const authSlice = createSlice({
         state.error = action.payload;
       });
 
-    // Register
+    // Request register OTP
     builder
-      .addCase(registerUser.pending, (state) => {
+      .addCase(requestRegisterOtp.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(registerUser.fulfilled, (state, action) => {
+      .addCase(requestRegisterOtp.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(requestRegisterOtp.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
+
+    // Verify register OTP
+    builder
+      .addCase(verifyRegisterOtp.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(verifyRegisterOtp.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload.user;
         state.token = action.payload.token;
       })
-      .addCase(registerUser.rejected, (state, action) => {
+      .addCase(verifyRegisterOtp.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

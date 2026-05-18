@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const PendingRegistration = require("../models/PendingRegistration");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { sendOtpEmail } = require("./emailService");
@@ -10,30 +11,6 @@ const generateToken = (user) => {
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN }
   );
-};
-
-// Đăng ký
-const register = async ({ name, email, password, phone }) => {
-  // Kiểm tra email đã tồn tại chưa
-  const existingUser = await User.findOne({ email });
-  if (existingUser) {
-    throw new Error("Email đã được sử dụng");
-  }
-
-  const user = await User.create({ name, email, password, phone });
-  const token = generateToken(user);
-
-  return {
-    token,
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar,
-      phone: user.phone,
-    },
-  };
 };
 
 // Đăng nhập
@@ -79,6 +56,75 @@ const generateOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
+const buildAuthPayload = (user) => ({
+  token: generateToken(user),
+  user: {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    avatar: user.avatar,
+    phone: user.phone,
+  },
+});
+
+// Gửi OTP đăng ký
+const requestRegisterOtp = async ({ name, email, password, phone }) => {
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    throw new Error("Email đã được sử dụng");
+  }
+
+  const otp = generateOtp();
+  await PendingRegistration.findOneAndUpdate(
+    { email },
+    {
+      name,
+      email,
+      password,
+      phone: phone || "",
+      otpHash: hashOtp(otp),
+      otpExpires: new Date(Date.now() + 5 * 60 * 1000),
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  await sendOtpEmail({ to: email, otp, purpose: "register" });
+  return { message: "Đã gửi OTP kích hoạt về email" };
+};
+
+// Xác thực OTP và tạo tài khoản
+const verifyRegisterOtp = async ({ email, otp }) => {
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    await PendingRegistration.deleteOne({ email });
+    throw new Error("Email đã được sử dụng");
+  }
+
+  const pending = await PendingRegistration.findOne({ email });
+  if (!pending) {
+    throw new Error("Không tìm thấy yêu cầu đăng ký. Vui lòng gửi OTP lại");
+  }
+
+  if (pending.otpExpires.getTime() < Date.now()) {
+    throw new Error("OTP đã hết hạn");
+  }
+
+  if (pending.otpHash !== hashOtp(otp)) {
+    throw new Error("OTP không đúng");
+  }
+
+  const user = await User.create({
+    name: pending.name,
+    email: pending.email,
+    password: pending.password,
+    phone: pending.phone,
+  });
+
+  await PendingRegistration.deleteOne({ email });
+  return buildAuthPayload(user);
+};
+
 // Gửi OTP reset mật khẩu
 const requestPasswordOtp = async ({ email }) => {
   const user = await User.findOne({ email });
@@ -91,7 +137,7 @@ const requestPasswordOtp = async ({ email }) => {
   user.resetOtpExpires = new Date(Date.now() + 5 * 60 * 1000);
   await user.save();
 
-  await sendOtpEmail({ to: email, otp });
+  await sendOtpEmail({ to: email, otp, purpose: "resetPassword" });
 
   return { message: "Đã gửi OTP về email" };
 };
@@ -125,4 +171,11 @@ const resetPassword = async ({ email, otp, newPassword }) => {
   return { message: "Đặt lại mật khẩu thành công" };
 };
 
-module.exports = { register, login, getMe, requestPasswordOtp, resetPassword };
+module.exports = {
+  requestRegisterOtp,
+  verifyRegisterOtp,
+  login,
+  getMe,
+  requestPasswordOtp,
+  resetPassword,
+};

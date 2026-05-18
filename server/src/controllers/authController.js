@@ -1,10 +1,29 @@
 const userService = require("../services/userService");
 
-// POST /api/auth/register
-const register = async (req, res) => {
+// POST /api/auth/request-register-otp
+const requestRegisterOtp = async (req, res) => {
   try {
     const { name, email, password, phone } = req.body;
-    const result = await userService.register({ name, email, password, phone });
+    const result = await userService.requestRegisterOtp({
+      name,
+      email,
+      password,
+      phone,
+    });
+    res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/auth/verify-register-otp
+const verifyRegisterOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const result = await userService.verifyRegisterOtp({ email, otp });
     res.status(201).json({
       success: true,
       message: "Đăng ký thành công",
@@ -68,4 +87,12 @@ const resetPassword = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getMe, logout, requestOtp, resetPassword };
+module.exports = {
+  requestRegisterOtp,
+  verifyRegisterOtp,
+  login,
+  getMe,
+  logout,
+  requestOtp,
+  resetPassword,
+};

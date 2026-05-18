@@ -48,13 +48,25 @@ const requestOtpValidation = [
   body("email").isEmail().withMessage("Email không hợp lệ").normalizeEmail(),
 ];
 
-// POST /api/auth/register - Lớp 1 (validate) + Lớp 2 (rate limit)
+// POST /api/auth/request-register-otp - Lớp 1 (validate) + Lớp 2 (rate limit)
 router.post(
-  "/auth/register",
+  "/auth/request-register-otp",
   apiLimiter,
   registerValidation,
   handleValidationErrors,
-  authController.register
+  authController.requestRegisterOtp
+);
+
+// POST /api/auth/verify-register-otp - Lớp 1 + Lớp 2
+router.post(
+  "/auth/verify-register-otp",
+  otpLimiter,
+  [
+    body("email").isEmail().withMessage("Email không hợp lệ").normalizeEmail(),
+    body("otp").notEmpty().withMessage("OTP không được để trống"),
+  ],
+  handleValidationErrors,
+  authController.verifyRegisterOtp
 );
 
 // POST /api/auth/login - Lớp 1 + Lớp 2 (strict)

@@ -15,15 +15,28 @@ const createTransporter = () => {
   });
 };
 
-const sendOtpEmail = async ({ to, otp }) => {
+const otpTemplates = {
+  resetPassword: {
+    subject: "Mã OTP đặt lại mật khẩu",
+    text: (otp) => `Mã OTP của bạn là: ${otp}. Mã có hiệu lực trong 5 phút.`,
+  },
+  register: {
+    subject: "Mã OTP kích hoạt tài khoản",
+    text: (otp) =>
+      `Mã OTP kích hoạt tài khoản của bạn là: ${otp}. Mã có hiệu lực trong 5 phút.`,
+  },
+};
+
+const sendOtpEmail = async ({ to, otp, purpose = "resetPassword" }) => {
   const transporter = createTransporter();
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const template = otpTemplates[purpose] || otpTemplates.resetPassword;
 
   await transporter.sendMail({
     from,
     to,
-    subject: "Mã OTP đặt lại mật khẩu",
-    text: `Mã OTP của bạn là: ${otp}. Mã có hiệu lực trong 5 phút.`,
+    subject: template.subject,
+    text: template.text(otp),
   });
 };
 

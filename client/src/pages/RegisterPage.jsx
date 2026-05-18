@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
-import { registerUser, clearError } from "../store/authSlice";
+import {
+  requestRegisterOtp,
+  verifyRegisterOtp,
+  clearError,
+} from "../store/authSlice";
 
 const RegisterPage = () => {
   const dispatch = useDispatch();
@@ -9,6 +13,9 @@ const RegisterPage = () => {
   const { user, loading, error } = useSelector((state) => state.auth);
 
   const [formData, setFormData] = useState({ name: "", email: "", phone: "", password: "" });
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [infoMessage, setInfoMessage] = useState("");
 
   useEffect(() => {
     if (user) navigate("/");
@@ -17,11 +24,30 @@ const RegisterPage = () => {
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     if (error) dispatch(clearError());
+    if (infoMessage) setInfoMessage("");
   };
 
-  const handleSubmit = async (e) => {
+  const handleOtpChange = (e) => {
+    setOtp(e.target.value);
+    if (error) dispatch(clearError());
+    if (infoMessage) setInfoMessage("");
+  };
+
+  const handleSendOtp = async (e) => {
     e.preventDefault();
-    await dispatch(registerUser(formData));
+    const result = await dispatch(requestRegisterOtp(formData));
+    if (requestRegisterOtp.fulfilled.match(result)) {
+      setOtpSent(true);
+      setInfoMessage("Đã gửi OTP kích hoạt về email. Vui lòng nhập OTP để hoàn tất đăng ký.");
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    const result = await dispatch(verifyRegisterOtp({ email: formData.email, otp }));
+    if (verifyRegisterOtp.fulfilled.match(result)) {
+      setInfoMessage("Đăng ký thành công.");
+    }
   };
 
   return (
@@ -49,8 +75,13 @@ const RegisterPage = () => {
                   {error}
                 </div>
               )}
+              {infoMessage && (
+                <div className="mb-4 rounded-lg border border-[#cfe9ff] bg-[#ecf5ff] px-4 py-3 text-sm text-[#1e3a8a]">
+                  {infoMessage}
+                </div>
+              )}
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSendOtp} className="space-y-5">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-[#191c1e]">Họ tên</label>
                   <input
@@ -104,9 +135,32 @@ const RegisterPage = () => {
                   disabled={loading}
                   className="w-full rounded-xl bg-[#0f172a] py-3 text-lg font-bold text-white hover:bg-[#111827] disabled:opacity-60"
                 >
-                  {loading ? "Đang xử lý..." : "Đăng ký"}
+                  {loading ? "Đang xử lý..." : otpSent ? "Gửi lại OTP" : "Gửi OTP kích hoạt"}
                 </button>
               </form>
+
+              {otpSent && (
+                <form onSubmit={handleVerifyOtp} className="mt-4 space-y-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-[#191c1e]">Mã OTP kích hoạt</label>
+                    <input
+                      type="text"
+                      value={otp}
+                      onChange={handleOtpChange}
+                      placeholder="123456"
+                      required
+                      className="w-full rounded-xl border border-[#c6c6cd] px-4 py-3 text-sm outline-none focus:border-[#8dc63f]"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full rounded-xl bg-[#416900] py-3 text-lg font-bold text-white hover:bg-[#375a00] disabled:opacity-60"
+                  >
+                    {loading ? "Đang xử lý..." : "Xác thực OTP và tạo tài khoản"}
+                  </button>
+                </form>
+              )}
 
               <p className="mt-4 text-center text-sm text-[#5a6168]">
                 Đã có tài khoản?{" "}
