@@ -33,20 +33,32 @@ const getProductDetail = async (req, res) => {
 // GET /api/home - dữ liệu trang chủ
 const getHomeData = async (req, res) => {
   try {
-    const [newest, bestSeller, promotions, featured] = await Promise.all([
+    const [newest, bestSeller, mostViewed, promotions, featured] = await Promise.all([
       productService.getNewestProducts(8),
       productService.getBestSellerProducts(8),
+      productService.getMostViewedProducts(8),
       productService.getPromotionProducts(8),
       productService.getFeaturedProducts(4),
     ]);
 
     res.status(200).json({
       success: true,
-      data: { newest, bestSeller, promotions, featured },
+      data: { newest, bestSeller, mostViewed, promotions, featured },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-module.exports = { getProducts, getProductDetail, getHomeData };
+// GET /api/products/top?type=bestSeller|mostViewed&page=1&limit=5
+const getTopProducts = async (req, res) => {
+  try {
+    const { type = "bestSeller", page = 1, limit = 5 } = req.query;
+    const data = await productService.getTopProducts({ type, page, limit });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+module.exports = { getProducts, getProductDetail, getHomeData, getTopProducts };

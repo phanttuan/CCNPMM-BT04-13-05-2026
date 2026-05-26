@@ -110,6 +110,9 @@ router.get("/home", verifyToken, productController.getHomeData);
 // GET /api/products - Lớp 3
 router.get("/products", verifyToken, productController.getProducts);
 
+// GET /api/products/top - Lớp 3
+router.get("/products/top", verifyToken, productController.getTopProducts);
+
 // GET /api/products/:slug - Lớp 3
 router.get("/products/:slug", verifyToken, productController.getProductDetail);
 

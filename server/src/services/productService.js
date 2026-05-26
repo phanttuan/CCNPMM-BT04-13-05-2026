@@ -60,10 +60,11 @@ const getAllProducts = async (query) => {
 
 // Lấy sản phẩm theo slug
 const getProductBySlug = async (slug) => {
-  const product = await Product.findOne({ slug, isActive: true }).populate(
-    "category",
-    "name slug icon"
-  );
+  const product = await Product.findOneAndUpdate(
+    { slug, isActive: true },
+    { $inc: { views: 1 } },
+    { new: true }
+  ).populate("category", "name slug icon");
   if (!product) {
     throw new Error("Không tìm thấy sản phẩm");
   }
@@ -84,6 +85,44 @@ const getBestSellerProducts = async (limit = 8) => {
     .populate("category", "name slug")
     .sort("-sold")
     .limit(limit);
+};
+
+// Sản phẩm xem nhiều nhất
+const getMostViewedProducts = async (limit = 8) => {
+  return await Product.find({ isActive: true })
+    .populate("category", "name slug")
+    .sort("-views")
+    .limit(limit);
+};
+
+// Top sản phẩm có phân trang theo loại
+const getTopProducts = async ({ type = "bestSeller", page = 1, limit = 5 }) => {
+  const sortMap = {
+    bestSeller: "-sold",
+    mostViewed: "-views",
+  };
+
+  const normalizedPage = Math.max(1, Number(page) || 1);
+  const normalizedLimit = Math.max(1, Number(limit) || 5);
+  const sort = sortMap[type] || sortMap.bestSeller;
+  const topLimit = 10;
+  const skip = (normalizedPage - 1) * normalizedLimit;
+
+  const topProducts = await Product.find({ isActive: true })
+    .populate("category", "name slug icon")
+    .sort(sort)
+    .limit(topLimit);
+
+  const total = topProducts.length;
+  const products = topProducts.slice(skip, skip + normalizedLimit);
+
+  return {
+    type,
+    products,
+    total,
+    page: normalizedPage,
+    totalPages: Math.ceil(total / normalizedLimit) || 1,
+  };
 };
 
 // Sản phẩm khuyến mãi
@@ -117,6 +156,8 @@ module.exports = {
   getProductBySlug,
   getNewestProducts,
   getBestSellerProducts,
+  getMostViewedProducts,
+  getTopProducts,
   getPromotionProducts,
   getFeaturedProducts,
   getSimilarProducts,
